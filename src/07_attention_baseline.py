@@ -86,3 +86,25 @@ for (B, H, N, d) in configs:
     out, _  = benchmark(attention_pytorch, Q, K, V, label="  pytorch SDPA")
 
     verify(ref.float(), out.float(), "pytorch SDPA")
+
+
+    '''
+    Config                                Time      TFLOPS
+------------------------------------------------------------
+B=1 H=8 N=1024 d=64
+  naive                         0.121 ms  17.68 TFLOPS
+  pytorch SDPA                  0.051 ms  41.90 TFLOPS
+  [pytorch SDPA] max error vs naive: 6.103516e-04 ✓
+B=1 H=8 N=2048 d=64
+  naive                         0.505 ms  17.00 TFLOPS
+  pytorch SDPA                  0.111 ms  77.10 TFLOPS
+  [pytorch SDPA] max error vs naive: 4.882812e-04 ✓
+B=1 H=8 N=4096 d=64
+  naive                         1.897 ms  18.11 TFLOPS
+  pytorch SDPA                  0.318 ms  108.15 TFLOPS
+  [pytorch SDPA] max error vs naive: 2.441406e-04 ✓
+B=1 H=16 N=4096 d=64
+  naive                         3.736 ms  18.39 TFLOPS
+  pytorch SDPA                  0.516 ms  133.17 TFLOPS
+  [pytorch SDPA] max error vs naive: 2.441406e-04 ✓
+    '''

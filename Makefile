@@ -23,7 +23,9 @@ SRC_TARGETS := \
     03_gemm_regblock    \
     04_gemm_float4      \
     05_gemm_cublas      \
-    06_gemm_float4_ultimate
+    06_gemm_float4_ultimate\
+	08_fused_attention\
+
 
 TUNING_DIR     := tuning
 TUNING_TARGETS := \
