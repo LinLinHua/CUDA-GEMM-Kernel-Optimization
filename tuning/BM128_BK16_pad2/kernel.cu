@@ -68,9 +68,9 @@ gemm_final(const float* A, const float* B, float* C, int M, int N, int K) {
 
         __syncthreads();
 
+        float regA[TM], regB[TN];
         #pragma unroll
         for (int kk = 0; kk < BK; kk++) {
-            float regA[TM], regB[TN];
             for (int m = 0; m < TM; m++)
                 regA[m] = sA[threadRow * TM + m][kk];
             for (int n = 0; n < TN; n++)

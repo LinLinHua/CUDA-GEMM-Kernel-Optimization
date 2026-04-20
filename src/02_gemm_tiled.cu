@@ -3,8 +3,8 @@
 #include <cuda_runtime.h>
 #include <math.h>
 
-// 32x32 threads/block = 1024 threads (hardware max for most GPUs)
-#define TILE_SIZE 32
+
+#define TILE_SIZE 16
 
 __global__ void gemm_tiled(
     const float* A, const float* B, float* C,
@@ -13,13 +13,15 @@ __global__ void gemm_tiled(
     __shared__ float sA[TILE_SIZE][TILE_SIZE];
     __shared__ float sB[TILE_SIZE][TILE_SIZE];
 
-    int row = blockIdx.y * TILE_SIZE + threadIdx.y;
-    int col = blockIdx.x * TILE_SIZE + threadIdx.x;
+    //global memory 
+    int row = blockIdx.y * blockDim.y + threadIdx.y;  // M dimension
+    int col = blockIdx.x * blockDim.x + threadIdx.x;  // N dimension
 
     float sum = 0.0f;
     int numTiles = (K + TILE_SIZE - 1) / TILE_SIZE;
-
+    //move the data from global to shared memory
     for (int t = 0; t < numTiles; t++) {
+        //shared memory
         int aCol = t * TILE_SIZE + threadIdx.x;
         int bRow = t * TILE_SIZE + threadIdx.y;
 
@@ -29,12 +31,13 @@ __global__ void gemm_tiled(
         __syncthreads();
 
         #pragma unroll
+        //calculate the result in this shared memory
         for (int k = 0; k < TILE_SIZE; k++)
             sum += sA[threadIdx.y][k] * sB[k][threadIdx.x];
 
         __syncthreads();
     }
-
+    //move the data to global C
     if (row < M && col < N)
         C[row * N + col] = sum;
 }
@@ -88,8 +91,9 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_A, h_A, sizeA, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, sizeB, cudaMemcpyHostToDevice);
 
-    dim3 blockDim(TILE_SIZE, TILE_SIZE);
-    dim3 gridDim((N + TILE_SIZE - 1) / TILE_SIZE, (M + TILE_SIZE - 1) / TILE_SIZE);
+    //GPU need to annouce the block and grid dimension
+    dim3 blockDim(16, 16);//on
+    dim3 gridDim((N + 15) / 16, (M + 15) / 16);
 
     // Warmup
     gemm_tiled<<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);

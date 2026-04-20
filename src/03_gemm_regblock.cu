@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
-#define BM 64   // block tile size in M dimension
-#define BN 64   // block tile size in N dimension
-#define BK 16   // block tile size in K dimension
+#define BM 64   // block size in M dimension
+#define BN 64   // block size in N dimension
+#define BK 16   // block size in K dimension
 #define TM 8    // each thread computes TM output rows
 #define TN 8    // each thread computes TN output cols
 
@@ -14,12 +14,13 @@ __global__ void gemm_regblock(
     const float* A, const float* B, float* C,
     int M, int N, int K)
 {
-    int threadRow = threadIdx.x / (BN / TN);
+    int threadRow = threadIdx.x / (BN / TN);//BN/TN=how many register_thread in each block
     int threadCol = threadIdx.x % (BN / TN);
 
     int blockRowStart = blockIdx.y * BM;
     int blockColStart = blockIdx.x * BN;
 
+    //let's matrix tiled size(shared memory)=block size
     __shared__ float sA[BM][BK];
     __shared__ float sB[BK][BN];
 
@@ -33,8 +34,6 @@ __global__ void gemm_regblock(
         // Load A tile
         for (int i = tid; i < BM * BK; i += totalThreads) {
             int r = i / BK, c = i % BK;
-            // FIX: was A[r * K + k + c] — missing blockRowStart offset,
-            //      causing all blocks except blockIdx.y==0 to read wrong rows.
             sA[r][c] = (blockRowStart + r < M && k + c < K)
                        ? A[(blockRowStart + r) * K + k + c] : 0.0f;
         }
@@ -42,16 +41,15 @@ __global__ void gemm_regblock(
         // Load B tile
         for (int i = tid; i < BK * BN; i += totalThreads) {
             int r = i / BN, c = i % BN;
-            // FIX: was B[(k + r) * N + c] — missing blockColStart offset,
-            //      causing all blocks except blockIdx.x==0 to read wrong cols.
             sB[r][c] = (k + r < K && blockColStart + c < N)
                        ? B[(k + r) * N + blockColStart + c] : 0.0f;
         }
 
         __syncthreads();
 
+        //load data from shared memory to register
+        float regA[TM], regB[TN];
         for (int kk = 0; kk < BK; kk++) {
-            float regA[TM], regB[TN];
             for (int m = 0; m < TM; m++)
                 regA[m] = sA[threadRow * TM + m][kk];
             for (int n = 0; n < TN; n++)
@@ -69,8 +67,6 @@ __global__ void gemm_regblock(
         for (int n = 0; n < TN; n++) {
             int globalRow = blockRowStart + threadRow * TM + m;
             int globalCol = blockColStart + threadCol * TN + n;
-            // FIX: was C[row * N + col] — missing block offsets,
-            //      all blocks wrote to the same top-left region of C.
             if (globalRow < M && globalCol < N)
                 C[globalRow * N + globalCol] = regC[m][n];
         }
@@ -126,7 +122,7 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_A, h_A, sizeA, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, sizeB, cudaMemcpyHostToDevice);
 
-    dim3 blockDim(64);
+    dim3 blockDim(BM);
     dim3 gridDim((N + BN - 1) / BN, (M + BM - 1) / BM);
 
     // Warmup

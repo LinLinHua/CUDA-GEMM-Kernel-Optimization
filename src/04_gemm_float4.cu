@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
+//define block size=tiled size
+
 #define BM 128
 #define BN 128
 #define BK 16
@@ -20,12 +22,8 @@ __global__ void gemm_float4(
     int blockRowStart = blockIdx.y * BM;
     int blockColStart = blockIdx.x * BN;
 
-    // FIX: added +4 padding to eliminate shared memory bank conflicts.
-    // Without padding, row stride = BK = 16 floats = 64 bytes.
-    // 64 bytes / 4 bytes per bank = 16 banks — every other row aliases the same bank set.
-    // With stride BK+4 = 20, no two rows share the same bank pattern.
-    __shared__ float sA[BM][BK + 4];
-    __shared__ float sB[BK][BN + 4];
+    __shared__ float sA[BM][BK + 2];
+    __shared__ float sB[BK][BN + 2];
 
     float regC[TM][TN] = {0.0f};
 
@@ -75,10 +73,9 @@ __global__ void gemm_float4(
         }
 
         __syncthreads();
-
+        float regA[TM], regB[TN];
         #pragma unroll
         for (int kk = 0; kk < BK; kk++) {
-            float regA[TM], regB[TN];
             for (int m = 0; m < TM; m++)
                 regA[m] = sA[threadRow * TM + m][kk];
             for (int n = 0; n < TN; n++)

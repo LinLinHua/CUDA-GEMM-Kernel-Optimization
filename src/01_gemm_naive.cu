@@ -72,7 +72,8 @@ int main(int argc, char** argv) {
     cudaMemcpy(d_A, h_A, sizeA, cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, h_B, sizeB, cudaMemcpyHostToDevice);
 
-    dim3 blockDim(16, 16);
+    //GPU need to annouce the block and grid dimension
+    dim3 blockDim(16, 16);//on
     dim3 gridDim((N + 15) / 16, (M + 15) / 16);
 
     // Warmup
@@ -112,3 +113,5 @@ int main(int argc, char** argv) {
     cudaFree(d_A); cudaFree(d_B); cudaFree(d_C);
     return 0;
 }
+
+

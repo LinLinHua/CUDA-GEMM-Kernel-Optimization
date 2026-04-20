@@ -28,9 +28,9 @@ __global__ void gemm_float4(
     int blockRowStart = blockIdx.y * BM;
     int blockColStart = blockIdx.x * BN;
 
-    // +4 padding to eliminate bank conflicts (see 04_gemm_float4.cu for explanation)
-    __shared__ float sA[BM][BK + 4];
-    __shared__ float sB[BK][BN + 4];
+    // +2 padding to eliminate bank conflicts (see 04_gemm_float4.cu for explanation)
+    __shared__ float sA[BM][BK + 2];
+    __shared__ float sB[BK][BN + 2];
 
     float regC[TM][TN] = {0.0f};
 
@@ -76,10 +76,10 @@ __global__ void gemm_float4(
         }
 
         __syncthreads();
-
+        
+        float regA[TM], regB[TN];
         #pragma unroll
         for (int kk = 0; kk < BK; kk++) {
-            float regA[TM], regB[TN];
             for (int m = 0; m < TM; m++)
                 regA[m] = sA[threadRow * TM + m][kk];
             for (int n = 0; n < TN; n++)

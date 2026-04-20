@@ -12,9 +12,8 @@
 __global__ void __launch_bounds__(64, 4)
 gemm_final(const float* A, const float* B, float* C, int M, int N, int K) {
 
-    // padding +4 eliminate bank conflict
-    __shared__ float sA[BM][BK + 4];
-    __shared__ float sB[BK][BN + 4];
+    __shared__ float sA[BM][BK + 2];
+    __shared__ float sB[BK][BN + 2];
 
     int threadRow = threadIdx.x / (BN / TN);
     int threadCol = threadIdx.x % (BN / TN);
@@ -68,9 +67,9 @@ gemm_final(const float* A, const float* B, float* C, int M, int N, int K) {
         __syncthreads();
 
         // outer product + register accumulation
+        float regA[TM], regB[TN];
         #pragma unroll
         for (int kk = 0; kk < BK; kk++) {
-            float regA[TM], regB[TN];
             for (int m = 0; m < TM; m++)
                 regA[m] = sA[threadRow * TM + m][kk];
             for (int n = 0; n < TN; n++)
